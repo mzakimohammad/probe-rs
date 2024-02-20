@@ -31,6 +31,7 @@ use crate::probe::list::Lister;
 use crate::{Error, Permissions, Session};
 use nusb::DeviceInfo;
 use probe_rs_target::ScanChainElement;
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::{convert::TryFrom, fmt};
@@ -482,6 +483,23 @@ impl Probe {
     pub fn get_target_voltage(&mut self) -> Result<Option<f32>, DebugProbeError> {
         self.inner.get_target_voltage()
     }
+
+    /// Get the underlying probe.
+    pub fn into_underlying_probe<T: DebugProbe + 'static>(&self) -> Option<&T> {
+        println!("into_underlying {:?}", self.inner);
+        match self.inner.as_any().downcast_ref::<T>() {
+            Some(probe) => Some(probe),
+            None => None,
+        }
+    }
+
+    /// Get the underlying probe.
+    pub fn into_underlying_probe_mut<T: DebugProbe + 'static>(&mut self) -> Option<&mut T> {
+        match self.inner.as_any_mut().downcast_mut::<T>() {
+            Some(probe) => Some(probe),
+            None => None,
+        }
+    }
 }
 
 /// An abstraction over a probe driver type.
@@ -497,10 +515,37 @@ pub trait ProbeFactory: std::any::Any + std::fmt::Debug + Sync {
     fn list_probes(&self) -> Vec<DebugProbeInfo>;
 }
 
+/// A trait for a factory which can create a specific probe type.
+pub trait Downcast {
+    /// Downcasts the probe to a dyn Any.
+    fn as_any(self: &'_ Self) -> &'_ dyn Any
+    where
+        Self: 'static;
+
+    /// Downcasts the probe to a dyn Any.
+    fn as_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any
+    where
+        Self: 'static;
+}
+impl<T> Downcast for T {
+    fn as_any(self: &'_ Self) -> &'_ dyn Any
+    where
+        Self: 'static,
+    {
+        self
+    }
+
+    fn as_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any
+    where
+        Self: 'static,
+    {
+        self
+    }
+}
 /// An abstraction over general debug probe.
 ///
 /// This trait has to be implemented by ever debug probe driver.
-pub trait DebugProbe: Send + fmt::Debug {
+pub trait DebugProbe: Send + fmt::Debug + Downcast {
     /// Get human readable name for the probe.
     fn get_name(&self) -> &str;
 

@@ -776,6 +776,15 @@ impl JLink {
 
         Ok(BitIter::new(&buf[..num_bytes], dir_bit_count).collect())
     }
+
+    /// Enable/Disable the Target Power Supply of the probe.
+    ///
+    /// This is not available on all probes.
+    /// This is avialable on some J-Links
+    pub fn set_kickstart_power(&self, enable: bool) -> Result<(), JlinkError> {
+        self.require_capability(Capability::SetKsPower)?;
+        self.write_cmd(&[Command::SetKsPower as u8, if enable { 1 } else { 0 }])
+    }
 }
 
 impl DebugProbe for JLink {
